@@ -100,12 +100,13 @@ export default function Login() {
       let dbUser = usersList.find(u => u.email.toLowerCase() === googleUser.email.toLowerCase());
 
       if (!dbUser) {
+        const isAdminEmail = googleUser.email.toLowerCase() === 'bhatianirudhsingh592@gmail.com';
         dbUser = await requestJson('/api/admin/users', {
           method: 'POST',
           body: JSON.stringify({
             name: googleUser.displayName || 'Google User',
             email: googleUser.email,
-            role: 'Contestant'
+            role: isAdminEmail ? 'Admin' : 'Contestant'
           })
         });
       }
@@ -169,12 +170,13 @@ export default function Login() {
         await updateProfile(result.user, { displayName: name });
 
         // 3. Register user profile in local DB
+        const isAdminEmail = email.toLowerCase() === 'bhatianirudhsingh592@gmail.com';
         const dbUser = await requestJson('/api/admin/users', {
           method: 'POST',
           body: JSON.stringify({
             name,
             email,
-            role: 'Contestant'
+            role: isAdminEmail ? 'Admin' : 'Contestant'
           })
         });
 
@@ -200,12 +202,13 @@ export default function Login() {
 
         // Auto-register in DB if missing (safety check)
         if (!dbUser) {
+          const isAdminEmail = email.toLowerCase() === 'bhatianirudhsingh592@gmail.com';
           dbUser = await requestJson('/api/admin/users', {
             method: 'POST',
             body: JSON.stringify({
               name: result.user.displayName || email.split('@')[0],
               email,
-              role: 'Contestant'
+              role: isAdminEmail ? 'Admin' : 'Contestant'
             })
           });
         }

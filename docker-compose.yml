@@ -59,7 +59,7 @@ services:
   judge0-worker:
     image: judge0/judge0:1.13.0
     container_name: judge0-execution-worker
-    command: ["./scripts/workers"]
+    command: [ "./scripts/workers" ]
     privileged: true
     volumes:
       - ./judge0.conf:/judge0.conf:ro
