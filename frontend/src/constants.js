@@ -79,15 +79,16 @@ export function formatContestDateTime(dateStr, timeStr) {
   if (typeof dateStr === 'string' && dateStr.includes('T')) {
     datePart = dateStr.split('T')[0];
   } else if (dateStr instanceof Date) {
-    const y = dateStr.getFullYear();
-    const m = String(dateStr.getMonth() + 1).padStart(2, '0');
-    const d = String(dateStr.getDate()).padStart(2, '0');
+    const y = dateStr.getUTCFullYear();
+    const m = String(dateStr.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(dateStr.getUTCDate()).padStart(2, '0');
     datePart = `${y}-${m}-${d}`;
   }
   
   const timePart = timeStr || '00:00:00';
-  const isoStr = `${datePart}T${timePart}`;
+  const isoStr = `${datePart}T${timePart}Z`;
   const dt = new Date(isoStr);
+
   
   if (isNaN(dt.getTime())) {
     return `${datePart} @ ${timePart}`;

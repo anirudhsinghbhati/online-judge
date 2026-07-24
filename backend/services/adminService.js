@@ -187,6 +187,7 @@ function normalizeContestPayload(payload) {
   const allowedUsers = normalizeText(payload.allowedUsers || payload.allowed_users);
   const status = normalizeText(payload.status) || 'Upcoming';
   const problemIds = Array.isArray(payload.problemIds) ? payload.problemIds.map((value) => Number.parseInt(value, 10)).filter((value) => Number.isInteger(value) && value > 0) : [];
+  const groupIds = Array.isArray(payload.groupIds) ? payload.groupIds.map((value) => Number.parseInt(value, 10)).filter((value) => Number.isInteger(value) && value > 0) : [];
 
   if (!contestName) {
     throw new HttpError(400, 'Contest name is required');
@@ -217,15 +218,17 @@ function normalizeContestPayload(payload) {
     accessControl,
     allowedUsers,
     status,
-    problemIds
+    problemIds,
+    groupIds
   };
+
 }
 
 function formatDateString(d) {
   if (d instanceof Date) {
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
+    const year = d.getUTCFullYear();
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   }
   return String(d || '');
@@ -241,8 +244,8 @@ function computeContestStatus(contest) {
   const startTime = contest.start_time || contest.startTime;
   const endTime = contest.end_time || contest.endTime;
 
-  const startObj = new Date(`${startStr}T${startTime}`);
-  const endObj = new Date(`${endStr}T${endTime}`);
+  const startObj = new Date(`${startStr}T${startTime}Z`);
+  const endObj = new Date(`${endStr}T${endTime}Z`);
   const now = new Date();
 
   if (now < startObj) {
@@ -253,6 +256,7 @@ function computeContestStatus(contest) {
     return 'Completed';
   }
 }
+
 
 async function listContests(search = '') {
   const term = normalizeText(search);
@@ -305,16 +309,24 @@ async function getContestById(id) {
       [contestId]
     );
 
+    const [groupRows] = await pool.query(
+      'SELECT ug.id, ug.name FROM contest_groups cg INNER JOIN user_groups ug ON ug.id = cg.group_id WHERE cg.contest_id = ?',
+      [contestId]
+    );
+
     return {
       ...contest,
       problems: problemRows,
       participants: participantRows,
+      groupIds: groupRows.map((g) => g.id),
+      groups: groupRows,
       leaderboard: participantRows.map((participant, index) => ({
         rank: index + 1,
         name: participant.name,
         score: Math.max(0, 1000 - index * 80)
       }))
     };
+
   });
 }
 
@@ -334,6 +346,13 @@ async function createContest(payload) {
       await connection.query(
         'INSERT INTO contest_problems (contest_id, problem_id, source) VALUES (?, ?, ?)',
         [result.insertId, problemId, 'existing']
+      );
+    }
+
+    for (const groupId of contest.groupIds) {
+      await connection.query(
+        'INSERT INTO contest_groups (contest_id, group_id) VALUES (?, ?)',
+        [result.insertId, groupId]
       );
     }
 
@@ -379,6 +398,15 @@ async function updateContest(id, payload) {
       );
     }
 
+    await connection.query('DELETE FROM contest_groups WHERE contest_id = ?', [contestId]);
+
+    for (const groupId of contest.groupIds) {
+      await connection.query(
+        'INSERT INTO contest_groups (contest_id, group_id) VALUES (?, ?)',
+        [contestId, groupId]
+      );
+    }
+
     await recordLog('Contest', `Updated contest #${contestId} (${contest.contestName})`, 'Info', connection);
 
     await connection.commit();
@@ -395,6 +423,7 @@ async function updateContest(id, payload) {
     connection.release();
   }
 }
+
 
 async function setContestStatus(id, status) {
   const contestId = parsePositiveId(id, 'contest id');
@@ -492,6 +521,150 @@ async function deleteAdminProblem(id) {
   return problemService.deleteProblem(id);
 }
 
+async function listGroups(search = '') {
+  const term = normalizeText(search);
+  const params = [];
+  let sql = `
+    SELECT ug.id, ug.name, ug.description, ug.created_at, COUNT(gm.user_id) AS member_count
+    FROM user_groups ug
+    LEFT JOIN group_members gm ON ug.id = gm.group_id
+  `;
+  if (term) {
+    sql += ' WHERE ug.name LIKE ? OR ug.description LIKE ?';
+    params.push(`%${term}%`, `%${term}%`);
+  }
+  sql += ' GROUP BY ug.id ORDER BY ug.id DESC';
+  const [rows] = await pool.query(sql, params);
+  return rows;
+}
+
+async function getGroupById(id) {
+  const groupId = parsePositiveId(id, 'group id');
+  const [rows] = await pool.query(
+    'SELECT id, name, description, created_at FROM user_groups WHERE id = ?',
+    [groupId]
+  );
+  if (rows.length === 0) {
+    throw new HttpError(404, 'Group not found');
+  }
+  const group = rows[0];
+
+  const [memberRows] = await pool.query(
+    'SELECT u.id, u.name, u.email FROM group_members gm INNER JOIN users u ON u.id = gm.user_id WHERE gm.group_id = ? ORDER BY u.name ASC',
+    [groupId]
+  );
+
+  return {
+    ...group,
+    userIds: memberRows.map((u) => u.id),
+    members: memberRows
+  };
+}
+
+async function createGroup(payload) {
+  const name = normalizeText(payload.name);
+  const description = normalizeText(payload.description);
+  const userIds = Array.isArray(payload.userIds) ? payload.userIds.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0) : [];
+
+  if (!name) {
+    throw new HttpError(400, 'Group name is required');
+  }
+
+  const [existing] = await pool.query('SELECT id FROM user_groups WHERE name = ?', [name]);
+  if (existing.length > 0) {
+    throw new HttpError(409, 'Group name already exists');
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [result] = await connection.query(
+      'INSERT INTO user_groups (name, description) VALUES (?, ?)',
+      [name, description]
+    );
+
+    const groupId = result.insertId;
+
+    for (const userId of userIds) {
+      await connection.query(
+        'INSERT INTO group_members (group_id, user_id) VALUES (?, ?)',
+        [groupId, userId]
+      );
+    }
+
+    await recordLog('Group', `Created group #${groupId} (${name})`, 'Info', connection);
+    await connection.commit();
+
+    return getGroupById(groupId);
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+async function updateGroup(id, payload) {
+  const groupId = parsePositiveId(id, 'group id');
+  const name = normalizeText(payload.name);
+  const description = normalizeText(payload.description);
+  const userIds = Array.isArray(payload.userIds) ? payload.userIds.map((userId) => Number(userId)).filter((userId) => Number.isInteger(userId) && userId > 0) : [];
+
+  if (!name) {
+    throw new HttpError(400, 'Group name is required');
+  }
+
+  const [existing] = await pool.query('SELECT id FROM user_groups WHERE name = ? AND id <> ?', [name, groupId]);
+  if (existing.length > 0) {
+    throw new HttpError(409, 'Group name already exists');
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [result] = await connection.query(
+      'UPDATE user_groups SET name = ?, description = ? WHERE id = ?',
+      [name, description, groupId]
+    );
+
+    if (result.affectedRows === 0) {
+      throw new HttpError(404, 'Group not found');
+    }
+
+    await connection.query('DELETE FROM group_members WHERE group_id = ?', [groupId]);
+
+    for (const userId of userIds) {
+      await connection.query(
+        'INSERT INTO group_members (group_id, user_id) VALUES (?, ?)',
+        [groupId, userId]
+      );
+    }
+
+    await recordLog('Group', `Updated group #${groupId} (${name})`, 'Info', connection);
+    await connection.commit();
+
+    return getGroupById(groupId);
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+async function deleteGroup(id) {
+  const groupId = parsePositiveId(id, 'group id');
+  const [result] = await pool.query('DELETE FROM user_groups WHERE id = ?', [groupId]);
+  if (result.affectedRows === 0) {
+    throw new HttpError(404, 'Group not found');
+  }
+
+  await recordLog('Group', `Deleted group #${groupId}`, 'Warning');
+  return { deleted: true };
+}
+
 module.exports = {
   createAdminProblem,
   createContest,
@@ -513,5 +686,10 @@ module.exports = {
   updateUser,
   listNotices,
   createNotice,
-  deleteNotice
-};
+  deleteNotice,
+  listGroups,
+  getGroupById,
+  createGroup,
+  updateGroup,
+  deleteGroup
+};

@@ -4,6 +4,19 @@ import { useNavigate } from 'react-router-dom';
 import AdminShell from '../../components/AdminShell';
 import { requestJson } from '../../lib/adminApi';
 
+function localToUtc(dateStr, timeStr) {
+  if (!dateStr || !timeStr) return { date: dateStr, time: timeStr };
+  // Ensure timeStr has seconds
+  const cleanTime = timeStr.split(':').length === 2 ? `${timeStr}:00` : timeStr;
+  const localDt = new Date(`${dateStr}T${cleanTime}`);
+  if (isNaN(localDt.getTime())) return { date: dateStr, time: timeStr };
+  
+  const utcStr = localDt.toISOString(); // YYYY-MM-DDTHH:mm:ss.sssZ
+  const [utcDate, utcTimeWithMs] = utcStr.split('T');
+  const utcTime = utcTimeWithMs.split('.')[0]; // HH:mm:ss
+  return { date: utcDate, time: utcTime };
+}
+
 export default function ContestCreate() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
@@ -20,26 +33,32 @@ export default function ContestCreate() {
     status: 'Upcoming'
   });
   const [problems, setProblems] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [problemSearch, setProblemSearch] = useState('');
   const [selectedProblems, setSelectedProblems] = useState([]);
+  const [selectedGroupIds, setSelectedGroupIds] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadProblems() {
+    async function loadData() {
       try {
-        const data = await requestJson('/api/admin/problems');
+        const [problemsData, groupsData] = await Promise.all([
+          requestJson('/api/admin/problems'),
+          requestJson('/api/admin/groups')
+        ]);
         if (!cancelled) {
-          setProblems(Array.isArray(data) ? data : []);
+          setProblems(Array.isArray(problemsData) ? problemsData : []);
+          setGroups(Array.isArray(groupsData) ? groupsData : []);
         }
       } catch (err) {
-        console.error('Failed to load problems:', err);
+        console.error('Failed to load data:', err);
       }
     }
 
-    loadProblems();
+    loadData();
 
     return () => {
       cancelled = true;
@@ -110,11 +129,19 @@ export default function ContestCreate() {
       setSaving(true);
       setError('');
 
+      const startUtc = localToUtc(form.startDate, form.startTime);
+      const endUtc = localToUtc(form.endDate, form.endTime);
+
       await requestJson('/api/admin/contests', {
         method: 'POST',
         body: JSON.stringify({
           ...form,
-          problemIds: selectedProblems
+          startDate: startUtc.date,
+          startTime: startUtc.time,
+          endDate: endUtc.date,
+          endTime: endUtc.time,
+          problemIds: selectedProblems,
+          groupIds: selectedGroupIds
         })
       });
 
@@ -185,12 +212,10 @@ export default function ContestCreate() {
             <select
               value={form.visibility}
               onChange={(event) => updateField('visibility', event.target.value)}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none focus:border-cyan-300/40 text-slate-100"
+              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none focus:border-cyan-300/40 text-slate-100 cursor-pointer"
             >
               <option>Public</option>
               <option>Private</option>
-              <option>Password Protected</option>
-              <option>Organization Only</option>
             </select>
           </label>
 
@@ -205,12 +230,45 @@ export default function ContestCreate() {
             />
           </label>
 
+          {/* PRIVATE GROUP SELECTOR */}
+          {form.visibility === 'Private' && (
+            <div className="space-y-2 text-sm text-slate-200 md:col-span-2">
+              <span className="text-slate-400">Select Allowed Groups</span>
+              <div className="rounded-[24px] border border-white/10 bg-white/5 p-4 grid gap-3 sm:grid-cols-2 max-h-48 overflow-y-auto scrollbar-thin">
+                {groups.map((group) => {
+                  const isChecked = selectedGroupIds.includes(group.id);
+                  return (
+                    <label key={group.id} className="flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          setSelectedGroupIds(curr =>
+                            curr.includes(group.id) ? curr.filter(id => id !== group.id) : [...curr, group.id]
+                          );
+                        }}
+                        className="h-4 w-4 rounded border-white/10 text-cyan-400 focus:ring-cyan-400/30 bg-transparent cursor-pointer"
+                      />
+                      <div>
+                        <span className="font-semibold text-slate-200 block text-sm">{group.name}</span>
+                        <span className="text-xs text-slate-400">{group.member_count} members</span>
+                      </div>
+                    </label>
+                  );
+                })}
+                {groups.length === 0 && (
+                  <p className="text-slate-400 text-sm col-span-2 p-2 text-center">No groups found. Please create a group first.</p>
+                )}
+              </div>
+            </div>
+          )}
+
           <label className="space-y-2 text-sm text-slate-200 md:col-span-2">
             <span className="text-slate-400">Contest Status</span>
             <select
               value={form.status}
               onChange={(event) => updateField('status', event.target.value)}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none focus:border-cyan-300/40 text-slate-100"
+              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none focus:border-cyan-300/40 text-slate-100 cursor-pointer"
             >
               <option>Upcoming</option>
               <option>Active</option>
@@ -231,7 +289,7 @@ export default function ContestCreate() {
                 className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-cyan-300/40"
               />
 
-              <div className="max-h-60 overflow-y-auto space-y-2 divide-y divide-white/5 pr-1">
+              <div className="max-h-60 overflow-y-auto space-y-2 divide-y divide-white/5 pr-1 scrollbar-thin">
                 {filteredProblems.map((p) => {
                   const isSelected = selectedProblems.includes(p.id);
                   return (

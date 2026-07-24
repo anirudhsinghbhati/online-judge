@@ -39,7 +39,8 @@ export default function UserContestDetails() {
       try {
         setLoading(true);
         setError('');
-        const data = await requestJson(`/api/contests/${contestId}`);
+        const userId = localStorage.getItem('demo_active_user_id') || 0;
+        const data = await requestJson(`/api/contests/${contestId}?userId=${userId}`);
         if (!cancelled) {
           setContest(data);
         }
@@ -97,7 +98,7 @@ export default function UserContestDetails() {
       const now = new Date();
 
       if (contest.status === 'Upcoming') {
-        const startObj = new Date(`${startStr}T${contest.start_time}`);
+        const startObj = new Date(`${startStr}T${contest.start_time}Z`);
         const diff = startObj - now;
 
         if (diff <= 0) {
@@ -106,7 +107,8 @@ export default function UserContestDetails() {
             isRetrying = true;
             timeoutId = setTimeout(async () => {
               try {
-                const data = await requestJson(`/api/contests/${contestId}`);
+                const userId = localStorage.getItem('demo_active_user_id') || 0;
+                const data = await requestJson(`/api/contests/${contestId}?userId=${userId}`);
                 setContest(data);
                 isRetrying = false;
               } catch (err) {
@@ -123,7 +125,7 @@ export default function UserContestDetails() {
         const secs = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
         setTimeLeft(`${hrs}:${mins}:${secs}`);
       } else if (contest.status === 'Active') {
-        const endObj = new Date(`${endStr}T${contest.end_time}`);
+        const endObj = new Date(`${endStr}T${contest.end_time}Z`);
         const diff = endObj - now;
 
         if (diff <= 0) {

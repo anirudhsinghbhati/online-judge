@@ -105,6 +105,31 @@ async function deleteNotice(req, res) {
   res.json({ success: true, message: 'Notice deleted successfully' });
 }
 
+async function listGroups(req, res) {
+  const groups = await adminService.listGroups(req.query.search || '');
+  res.json({ success: true, data: groups });
+}
+
+async function getGroup(req, res) {
+  const group = await adminService.getGroupById(req.params.id);
+  res.json({ success: true, data: group });
+}
+
+async function createGroup(req, res) {
+  const group = await adminService.createGroup(req.body || {});
+  res.status(201).json({ success: true, data: group });
+}
+
+async function updateGroup(req, res) {
+  const group = await adminService.updateGroup(req.params.id, req.body || {});
+  res.json({ success: true, data: group });
+}
+
+async function deleteGroup(req, res) {
+  await adminService.deleteGroup(req.params.id);
+  res.json({ success: true, message: 'Group deleted successfully' });
+}
+
 module.exports = {
   createContest,
   createProblem,
@@ -126,5 +151,10 @@ module.exports = {
   updateUser,
   listNotices,
   createNotice,
-  deleteNotice
-};
+  deleteNotice,
+  listGroups,
+  getGroup,
+  createGroup,
+  updateGroup,
+  deleteGroup
+};

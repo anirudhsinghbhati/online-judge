@@ -69,6 +69,51 @@ async function runMigrations(pool) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS user_groups (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL UNIQUE,
+        description TEXT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS group_members (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        group_id INT NOT NULL,
+        user_id INT NOT NULL,
+        joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_group_members_group
+          FOREIGN KEY (group_id)
+          REFERENCES user_groups(id)
+          ON DELETE CASCADE,
+        CONSTRAINT fk_group_members_user
+          FOREIGN KEY (user_id)
+          REFERENCES users(id)
+          ON DELETE CASCADE,
+        UNIQUE KEY uniq_group_member (group_id, user_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS contest_groups (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        contest_id INT NOT NULL,
+        group_id INT NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_contest_groups_contest
+          FOREIGN KEY (contest_id)
+          REFERENCES contests(id)
+          ON DELETE CASCADE,
+        CONSTRAINT fk_contest_groups_group
+          FOREIGN KEY (group_id)
+          REFERENCES user_groups(id)
+          ON DELETE CASCADE,
+        UNIQUE KEY uniq_contest_group (contest_id, group_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
     console.log('Database migrations completed successfully.');
   } catch (error) {
     console.error('Database migration failed:', error);
@@ -80,3 +125,4 @@ async function runMigrations(pool) {
 }
 
 module.exports = { runMigrations };
+

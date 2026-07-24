@@ -23,10 +23,16 @@ router.put('/contests/:id', asyncHandler(adminController.updateContest));
 router.patch('/contests/:id/status', asyncHandler(adminController.setContestStatus));
 router.delete('/contests/:id', asyncHandler(adminController.deleteContest));
 
+router.get('/groups', asyncHandler(adminController.listGroups));
+router.get('/groups/:id', asyncHandler(adminController.getGroup));
+router.post('/groups', asyncHandler(adminController.createGroup));
+router.put('/groups/:id', asyncHandler(adminController.updateGroup));
+router.delete('/groups/:id', asyncHandler(adminController.deleteGroup));
+
 router.get('/logs', asyncHandler(adminController.listLogs));
 
 router.get('/notices', asyncHandler(adminController.listNotices));
 router.post('/notices', asyncHandler(adminController.createNotice));
 router.delete('/notices/:id', asyncHandler(adminController.deleteNotice));
 
-module.exports = router;
+module.exports = router;

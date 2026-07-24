@@ -25,8 +25,15 @@ const dashboardCards = [
     to: '/admin/logs',
     description: 'Review audit trails, system events, and important operational activity.',
     accent: 'from-rose-400/30 to-red-500/10'
+  },
+  {
+    title: 'Notice Board',
+    to: '/admin/notices',
+    description: 'Post notices, alerts, and platform notifications for contestants.',
+    accent: 'from-fuchsia-400/30 to-purple-500/10'
   }
 ];
+
 
 function Admin() {
   return (

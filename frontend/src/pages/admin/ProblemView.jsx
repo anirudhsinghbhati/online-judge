@@ -4,6 +4,58 @@ import { useParams, useNavigate } from 'react-router-dom';
 import AdminShell from '../../components/AdminShell';
 import { requestJson } from '../../lib/adminApi';
 
+// RFC 4180 compliant CSV parser
+function parseCSV(text) {
+  const rows = [];
+  let row = [];
+  let col = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const nextChar = text[i+1];
+    
+    if (inQuotes) {
+      if (char === '"') {
+        if (nextChar === '"') {
+          col += '"';
+          i++; // skip next quote
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        col += char;
+      }
+    } else {
+      if (char === '"') {
+        inQuotes = true;
+      } else if (char === ',') {
+        row.push(col);
+        col = '';
+      } else if (char === '\r' || char === '\n') {
+        row.push(col);
+        col = '';
+        if (row.some(x => x !== '')) {
+          rows.push(row);
+        }
+        row = [];
+        if (char === '\r' && nextChar === '\n') {
+          i++;
+        }
+      } else {
+        col += char;
+      }
+    }
+  }
+  if (col || row.length > 0) {
+    row.push(col);
+    if (row.some(x => x !== '')) {
+      rows.push(row);
+    }
+  }
+  return rows;
+}
+
 export default function ProblemView() {
   const { problemId } = useParams();
   const navigate = useNavigate();
@@ -110,6 +162,94 @@ export default function ProblemView() {
       testcases: current.testcases.filter((_, i) => i !== index)
     }));
   }
+
+  function handleCsvUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target.result;
+        const parsed = parseCSV(text);
+        if (!parsed || parsed.length === 0) {
+          setError('Invalid or empty CSV file.');
+          return;
+        }
+        
+        let startRow = 1;
+        let inputIdx = 0;
+        let outputIdx = 1;
+        let visibilityIdx = -1;
+        
+        const firstRow = parsed[0].map(h => h.trim().toLowerCase());
+        const isHeader = firstRow.some(h => h.includes('input') || h.includes('output') || h.includes('expected') || h.includes('visibility'));
+        
+        if (isHeader) {
+          inputIdx = firstRow.findIndex(h => h.includes('input'));
+          outputIdx = firstRow.findIndex(h => h.includes('output') || h.includes('expected'));
+          visibilityIdx = firstRow.findIndex(h => h.includes('visibility') || h.includes('type'));
+          startRow = 1;
+        } else {
+          startRow = 0;
+          inputIdx = 0;
+          outputIdx = 1;
+          visibilityIdx = -1;
+        }
+        
+        if (inputIdx === -1 || outputIdx === -1) {
+          setError('Could not find input/output columns in CSV. Please make sure headers contain "input" and "output".');
+          return;
+        }
+        
+        const newTestcases = [];
+        for (let i = startRow; i < parsed.length; i++) {
+          const row = parsed[i];
+          if (row.length <= Math.max(inputIdx, outputIdx)) continue;
+          
+          const input_data = row[inputIdx] || '';
+          const expected_output = row[outputIdx] || '';
+          let visibility = 'visible';
+          
+          if (visibilityIdx !== -1 && row[visibilityIdx]) {
+            const visStr = row[visibilityIdx].trim().toLowerCase();
+            if (visStr.includes('hidden') || visStr.includes('judge') || visStr === '0' || visStr === 'false') {
+              visibility = 'hidden';
+            }
+          } else {
+            visibility = (newTestcases.length < 2) ? 'visible' : 'hidden';
+          }
+          
+          newTestcases.push({
+            input_data,
+            expected_output,
+            visibility,
+            sort_order: newTestcases.length
+          });
+        }
+        
+        if (newTestcases.length === 0) {
+          setError('No valid test cases found in CSV.');
+          return;
+        }
+        
+        if (newTestcases.length > 10) {
+          setError('A maximum of 10 testcases is allowed. Only the first 10 testcases were imported.');
+        }
+        
+        const truncated = newTestcases.slice(0, 10);
+        setForm(current => ({
+          ...current,
+          testcases: truncated
+        }));
+        setError('');
+      } catch (err) {
+        setError('Failed to parse CSV file: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  }
+
 
   async function handleSave(event) {
     event.preventDefault();
@@ -405,6 +545,18 @@ export default function ProblemView() {
                 className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none placeholder:text-slate-500 focus:border-cyan-300/40 font-mono text-slate-100"
               />
             </label>
+          </div>
+
+          {/* CSV IMPORT OPTION */}
+          <div className="rounded-[24px] border border-dashed border-white/10 bg-white/5 p-6 text-center">
+            <p className="text-sm font-semibold text-slate-300">Or import testcases directly from a CSV file</p>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleCsvUpload}
+              className="mt-4 mx-auto block max-w-sm text-sm text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-cyan-400 file:text-slate-950 hover:file:bg-cyan-300 cursor-pointer"
+            />
+            <p className="text-xs text-slate-500 mt-2">CSV must contain column headers matching "input" and "output". Maximum 10 testcases.</p>
           </div>
 
           <section className="space-y-4">

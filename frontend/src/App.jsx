@@ -9,8 +9,10 @@ import Logs from './pages/admin/Logs';
 import ProblemAdd from './pages/admin/ProblemAdd';
 import ProblemManagement from './pages/admin/ProblemManagement';
 import ProblemView from './pages/admin/ProblemView';
-import UserAdd from './pages/admin/UserAdd';
 import UserManagement from './pages/admin/UserManagement';
+import UserList from './pages/admin/UserList';
+import GroupList from './pages/admin/GroupList';
+import GroupAdd from './pages/admin/GroupAdd';
 import UserView from './pages/admin/UserView';
 import NoticeManagement from './pages/admin/NoticeManagement';
 import UserDashboard from './pages/user/UserDashboard';
@@ -19,6 +21,7 @@ import UserContests from './pages/user/UserContests';
 import UserContestDetails from './pages/user/UserContestDetails';
 import UserProfile from './pages/user/UserProfile';
 import User from './pages/User';
+
 
 function ProtectedRoute({ allowedRoles }) {
   const activeUserId = localStorage.getItem('demo_active_user_id');
@@ -60,8 +63,11 @@ export default function App() {
           <Route path="/admin/problem-management/add" element={<ProblemAdd />} />
           <Route path="/admin/problem-management/:problemId" element={<ProblemView />} />
           <Route path="/admin/user-management" element={<UserManagement />} />
-          <Route path="/admin/user-management/add" element={<UserAdd />} />
+          <Route path="/admin/user-management/users" element={<UserList />} />
           <Route path="/admin/user-management/:userId" element={<UserView />} />
+          <Route path="/admin/group-management" element={<GroupList />} />
+          <Route path="/admin/group-management/add" element={<GroupAdd />} />
+          <Route path="/admin/group-management/:groupId" element={<GroupAdd />} />
           <Route path="/admin/contest-management" element={<ContestManagement />} />
           <Route path="/admin/contest-management/create" element={<ContestCreate />} />
           <Route path="/admin/contest-management/:contestId" element={<ContestView />} />

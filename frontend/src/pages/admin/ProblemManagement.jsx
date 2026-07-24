@@ -114,6 +114,7 @@ export default function ProblemManagement() {
               <tr>
                 <th className="px-4 py-3 font-medium uppercase tracking-[0.28em]">Problem No.</th>
                 <th className="px-4 py-3 font-medium uppercase tracking-[0.28em]">Problem Name</th>
+                <th className="px-4 py-3 font-medium uppercase tracking-[0.28em]">Access</th>
                 <th className="px-4 py-3 font-medium uppercase tracking-[0.28em]">Difficulty</th>
                 <th className="px-4 py-3 font-medium uppercase tracking-[0.28em]">Topic</th>
                 <th className="px-4 py-3 font-medium uppercase tracking-[0.28em]">Last Added</th>
@@ -123,7 +124,7 @@ export default function ProblemManagement() {
             <tbody className="divide-y divide-white/10">
               {loading ? (
                 <tr>
-                  <td className="px-4 py-6 text-slate-300" colSpan={6}>
+                  <td className="px-4 py-6 text-slate-300" colSpan={7}>
                     Loading problems...
                   </td>
                 </tr>
@@ -132,6 +133,15 @@ export default function ProblemManagement() {
                   <tr key={problem.id} className="hover:bg-white/[0.03]">
                     <td className="px-4 py-4 text-slate-200">{problem.id}</td>
                     <td className="px-4 py-4 text-slate-200">{problem.title}</td>
+                    <td className="px-4 py-4 text-slate-200">
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                        problem.isPractice
+                          ? 'bg-emerald-400/10 text-emerald-300'
+                          : 'bg-amber-400/10 text-amber-300'
+                      }`}>
+                        {problem.isPractice ? 'Public' : 'Reserve for Contest'}
+                      </span>
+                    </td>
                     <td className="px-4 py-4 text-slate-200">{problem.difficulty}</td>
                     <td className="px-4 py-4 text-slate-200">{problem.topic}</td>
                     <td className="px-4 py-4 text-slate-200">{problem.updated_at || problem.created_at || '-'}</td>
@@ -147,13 +157,14 @@ export default function ProblemManagement() {
                 ))
               ) : (
                 <tr>
-                  <td className="px-4 py-6 text-slate-300" colSpan={6}>
+                  <td className="px-4 py-6 text-slate-300" colSpan={7}>
                     No problems found.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+
         </div>
       </div>
     </AdminShell>

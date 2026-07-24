@@ -164,6 +164,8 @@ export default function AdminShell({ breadcrumb, toolbar, children }) {
     }
   }
 
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   function isTabActive(item) {
     if (item.to === '/admin') {
       return location.pathname === '/admin';
@@ -175,8 +177,8 @@ export default function AdminShell({ breadcrumb, toolbar, children }) {
     <div className="min-h-screen w-full px-4 py-5 sm:px-6 lg:px-8">
       <div className="flex flex-col lg:flex-row gap-6">
         
-        {/* SIDE BAR NAVIGATION */}
-        <aside className="w-full lg:w-64 shrink-0 rounded-[28px] border border-white/10 bg-slate-950/70 p-5 shadow-glow backdrop-blur-xl flex flex-col justify-between self-start">
+        {/* DESKTOP SIDE BAR NAVIGATION */}
+        <aside className="hidden lg:flex w-full lg:w-64 shrink-0 rounded-[28px] border border-white/10 bg-slate-950/70 p-5 shadow-glow backdrop-blur-xl flex-col justify-between self-start">
           <div className="space-y-6">
             <div className="px-3 py-2 flex items-center gap-3 border-b border-white/5 pb-4">
               <span className="h-3 w-3 rounded-full bg-cyan-300 animate-pulse" />
@@ -211,10 +213,77 @@ export default function AdminShell({ breadcrumb, toolbar, children }) {
           </div>
         </aside>
 
+        {/* MOBILE SIDEBAR DRAWER OVERLAY */}
+        {isSidebarOpen && (
+          <div className="fixed inset-0 z-50 flex lg:hidden bg-slate-950/80 backdrop-blur-md transition-opacity duration-300">
+            <aside className="relative w-72 max-w-xs bg-slate-950 border-r border-white/10 p-5 flex flex-col justify-between h-full animate-slide-in">
+              <div className="space-y-6">
+                <div className="px-3 py-2 flex items-center justify-between border-b border-white/5 pb-4">
+                  <div className="flex items-center gap-3">
+                    <span className="h-3 w-3 rounded-full bg-cyan-300 animate-pulse" />
+                    <span className="font-bold text-sm tracking-wider uppercase text-white">Console Admin</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsSidebarOpen(false)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+                    aria-label="Close sidebar"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <nav className="space-y-1">
+                  {sidebarLinks.map((link) => {
+                    const active = isTabActive(link);
+                    return (
+                      <Link
+                        key={link.to}
+                        to={link.to}
+                        onClick={() => setIsSidebarOpen(false)}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition ${
+                          active
+                            ? 'bg-cyan-400/10 text-cyan-300 border border-cyan-400/20'
+                            : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+                        }`}
+                      >
+                        {link.icon}
+                        {link.label}
+                      </Link>
+                    );
+                  })}
+                </nav>
+              </div>
+
+              <div className="mt-8 border-t border-white/5 pt-4 text-center">
+                <Link to="/user" className="inline-block text-xs font-semibold uppercase tracking-wider text-slate-500 hover:text-cyan-300 transition">
+                  &larr; Exit Console
+                </Link>
+              </div>
+            </aside>
+            <div className="flex-1" onClick={() => setIsSidebarOpen(false)} />
+          </div>
+        )}
+
         {/* MAIN BODY WINDOW */}
         <div className="flex-1 rounded-[28px] border border-white/10 bg-slate-950/70 shadow-glow backdrop-blur-xl flex flex-col overflow-hidden">
           <header className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 px-4 py-4 sm:px-6">
             <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-white">
+              
+              {/* MOBILE MENU TRIGGER BUTTON (THREE LINES) */}
+              <button
+                type="button"
+                onClick={() => setIsSidebarOpen(true)}
+                className="lg:hidden inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+                aria-label="Open sidebar"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+
               {breadcrumb.map((item, index) => (
                 <span key={item.label} className="flex items-center gap-2">
                   {item.to ? (
@@ -285,4 +354,5 @@ export default function AdminShell({ breadcrumb, toolbar, children }) {
       </div>
     </div>
   );
+
 }

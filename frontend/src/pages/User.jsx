@@ -92,7 +92,7 @@ function UserWorkspace() {
 
     function updateTimeLeft() {
       const endStr = getYYYYMMDD(selectedContest.end_date);
-      const endObj = new Date(`${endStr}T${selectedContest.end_time}`);
+      const endObj = new Date(`${endStr}T${selectedContest.end_time}Z`);
       const now = new Date();
       const diff = endObj - now;
 
@@ -164,7 +164,8 @@ function UserWorkspace() {
 
     async function loadContest() {
       try {
-        const data = await requestJson(`/api/contests/${contestId}`);
+        const userId = localStorage.getItem('demo_active_user_id') || 0;
+        const data = await requestJson(`/api/contests/${contestId}?userId=${userId}`);
         if (!cancelled) {
           setSelectedContest(data);
           if (data.status === 'Completed') {

@@ -113,6 +113,22 @@ export default function ContestView() {
             </div>
           </div>
 
+          {contest.visibility === 'Private' && contest.groups && (
+            <div className="rounded-[24px] border border-white/10 bg-slate-950/55 p-5">
+              <p className="text-xs uppercase tracking-[0.35em] text-slate-500 font-semibold">Allowed Groups</p>
+              <div className="mt-4 flex flex-wrap gap-2 text-sm text-slate-300">
+                {contest.groups.map((group) => (
+                  <span key={group.id} className="rounded-full border border-cyan-400/20 bg-cyan-400/5 px-3 py-2 text-cyan-200 font-semibold">
+                    {group.name}
+                  </span>
+                ))}
+                {contest.groups.length === 0 && (
+                  <span className="text-xs text-slate-500">No groups configured. Access restricted to staff only.</span>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="rounded-[24px] border border-white/10 bg-slate-950/55 p-5">
             <p className="text-xs uppercase tracking-[0.35em] text-slate-500">Other Information</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">

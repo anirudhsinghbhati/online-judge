@@ -50,13 +50,13 @@ jobs:
       - name: Checkout Code (to get docker-compose file)
         uses: actions/checkout@v4
 
-      - name: Copy config files to EC2 via SCP
+      - name: Copy deployment files to EC2 via SCP
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "docker-compose.yml,backend/database/schema.sql,judge0.conf"
+          source: "docker-compose.yml,backend,frontend,judge0.conf"
           target: "~/app/"
           strip_components: 0 # Ensures relative paths are preserved under ~/app/
 
@@ -86,8 +86,8 @@ jobs:
             # Pull the latest images securely
             sudo docker compose pull
             
-            # Stop older containers and start new ones seamlessly
-            sudo docker compose up -d --remove-orphans
+            # Stop older containers and start new ones seamlessly without rebuilding locally
+            sudo docker compose up -d --remove-orphans --no-build
             
             # Clean up old, unused dangling images to save EC2 disk space
             sudo docker image prune -f

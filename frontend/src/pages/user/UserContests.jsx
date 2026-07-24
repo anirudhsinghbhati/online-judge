@@ -35,7 +35,8 @@ export default function UserContests() {
       try {
         setLoading(true);
         setError('');
-        const data = await requestJson('/api/contests');
+        const userId = localStorage.getItem('demo_active_user_id') || 0;
+        const data = await requestJson(`/api/contests?userId=${userId}`);
         if (!cancelled) {
           setContests(Array.isArray(data) ? data : []);
         }

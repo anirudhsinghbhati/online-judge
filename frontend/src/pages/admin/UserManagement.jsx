@@ -1,28 +1,32 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import AdminShell from '../../components/AdminShell';
 import { requestJson } from '../../lib/adminApi';
 
 export default function UserManagement() {
-  const [users, setUsers] = useState([]);
-  const [search, setSearch] = useState('');
+  const [userCount, setUserCount] = useState(0);
+  const [groupCount, setGroupCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadUsers() {
+    async function loadStats() {
       try {
         setLoading(true);
-        const data = await requestJson('/api/admin/users');
+        const [users, groups] = await Promise.all([
+          requestJson('/api/admin/users'),
+          requestJson('/api/admin/groups')
+        ]);
         if (!cancelled) {
-          setUsers(Array.isArray(data) ? data : []);
+          setUserCount(Array.isArray(users) ? users.length : 0);
+          setGroupCount(Array.isArray(groups) ? groups.length : 0);
         }
-      } catch (fetchError) {
+      } catch (err) {
         if (!cancelled) {
-          setError(fetchError.message);
+          setError(err.message);
         }
       } finally {
         if (!cancelled) {
@@ -31,88 +35,82 @@ export default function UserManagement() {
       }
     }
 
-    loadUsers();
+    loadStats();
 
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const visibleUsers = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return users.filter((user) => {
-      if (!term) {
-        return true;
-      }
-      return [user.id, user.name, user.email, user.role].join(' ').toLowerCase().includes(term);
-    });
-  }, [search, users]);
-
-  const toolbar = (
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex w-full items-center gap-3 lg:max-w-4xl">
-        <input
-          type="search"
-          placeholder="Search users"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-cyan-300/40"
-        />
-      </div>
-      <Link
-        to="/admin/user-management/add"
-        className="inline-flex items-center justify-center rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
-      >
-        Add
-      </Link>
-    </div>
-  );
-
   return (
-    <AdminShell breadcrumb={[{ label: 'Admin Dashboard', to: '/admin' }, { label: 'User Management' }]} toolbar={toolbar}>
+    <AdminShell breadcrumb={[{ label: 'Admin Dashboard', to: '/admin' }, { label: 'User Management' }]}>
       {error ? <div className="mb-4 rounded-2xl border border-rose-300/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">{error}</div> : null}
 
-      <div className="overflow-hidden rounded-[24px] border border-white/10 bg-slate-950/55">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-white/10 bg-white/5 text-slate-400">
-              <tr>
-                <th className="px-4 py-3 font-medium uppercase tracking-[0.28em]">User ID</th>
-                <th className="px-4 py-3 font-medium uppercase tracking-[0.28em]">User Name</th>
-                <th className="px-4 py-3 font-medium uppercase tracking-[0.28em]">Email</th>
-                <th className="px-4 py-3 font-medium uppercase tracking-[0.28em]">Role</th>
-                <th className="px-4 py-3 font-medium uppercase tracking-[0.28em]">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/10">
-              {loading ? (
-                <tr>
-                  <td className="px-4 py-6 text-slate-300" colSpan={5}>Loading users...</td>
-                </tr>
-              ) : visibleUsers.length > 0 ? (
-                visibleUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-white/[0.03]">
-                    <td className="px-4 py-4 text-slate-200">{user.id}</td>
-                    <td className="px-4 py-4 text-slate-200">{user.name}</td>
-                    <td className="px-4 py-4 text-slate-200">{user.email}</td>
-                    <td className="px-4 py-4 text-slate-200">{user.role}</td>
-                    <td className="px-4 py-4">
-                      <Link
-                        to={`/admin/user-management/${user.id}`}
-                        className="inline-flex items-center rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 transition hover:bg-cyan-300/20"
-                      >
-                        View
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td className="px-4 py-6 text-slate-300" colSpan={5}>No users found.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* USERS CARD */}
+        <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-slate-950/55 p-6 backdrop-blur-xl transition duration-200 hover:border-cyan-400/20">
+          <div className="flex items-center justify-between">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-400/15 text-cyan-300 border border-cyan-400/30">
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            </div>
+            {loading ? (
+              <div className="h-5 w-16 animate-pulse rounded bg-white/10" />
+            ) : (
+              <span className="text-2xl font-extrabold text-white">{userCount} Users</span>
+            )}
+          </div>
+          <div className="mt-6">
+            <h2 className="text-xl font-bold text-white">Users Directory</h2>
+            <p className="mt-2 text-sm text-slate-400 leading-relaxed">
+              Browse, view stats, monitor activities, and modify statuses of all registered user profiles on the platform.
+            </p>
+          </div>
+          <div className="mt-8 border-t border-white/5 pt-4">
+            <Link
+              to="/admin/user-management/users"
+              className="inline-flex w-full items-center justify-center rounded-2xl bg-white/5 border border-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10 hover:border-white/20"
+            >
+              View User List
+            </Link>
+          </div>
+        </div>
+
+        {/* GROUPS CARD */}
+        <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-slate-950/55 p-6 backdrop-blur-xl transition duration-200 hover:border-cyan-400/20">
+          <div className="flex items-center justify-between">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-400/15 text-cyan-300 border border-cyan-400/30">
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            {loading ? (
+              <div className="h-5 w-16 animate-pulse rounded bg-white/10" />
+            ) : (
+              <span className="text-2xl font-extrabold text-white">{groupCount} Groups</span>
+            )}
+          </div>
+          <div className="mt-6">
+            <h2 className="text-xl font-bold text-white">Groups Manager</h2>
+            <p className="mt-2 text-sm text-slate-400 leading-relaxed">
+              Organize users into groups to set up private contests that are restricted to selected groups.
+            </p>
+          </div>
+          <div className="mt-8 flex gap-3 border-t border-white/5 pt-4">
+            <Link
+              to="/admin/group-management"
+              className="flex-1 inline-flex items-center justify-center rounded-2xl bg-white/5 border border-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10 hover:border-white/20"
+            >
+              View Groups
+            </Link>
+            <Link
+              to="/admin/group-management/add"
+              className="flex-1 inline-flex items-center justify-center rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
+            >
+              Create Group
+            </Link>
+          </div>
         </div>
       </div>
     </AdminShell>
