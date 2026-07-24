@@ -114,6 +114,20 @@ async function runMigrations(pool) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
+    // Auto-promote admin email to Admin role if it exists
+    const [adminRows] = await connection.query(
+      "SELECT id, role FROM users WHERE LOWER(email) = 'bhatianirudhsingh592@gmail.com'"
+    );
+    if (adminRows.length > 0) {
+      if (adminRows[0].role !== 'Admin') {
+        console.log('Migration: Promoting bhatianirudhsingh592@gmail.com to Admin...');
+        await connection.query(
+          "UPDATE users SET role = 'Admin' WHERE LOWER(email) = 'bhatianirudhsingh592@gmail.com'"
+        );
+        console.log('Migration: Promotion successful.');
+      }
+    }
+
     console.log('Database migrations completed successfully.');
   } catch (error) {
     console.error('Database migration failed:', error);

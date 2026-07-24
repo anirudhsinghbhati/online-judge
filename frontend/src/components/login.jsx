@@ -109,6 +109,17 @@ export default function Login() {
             role: isAdminEmail ? 'Admin' : 'Contestant'
           })
         });
+      } else {
+        const isAdminEmail = googleUser.email.toLowerCase() === 'bhatianirudhsingh592@gmail.com';
+        if (isAdminEmail && dbUser.role !== 'Admin') {
+          dbUser = await requestJson(`/api/admin/users/${dbUser.id}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              ...dbUser,
+              role: 'Admin'
+            })
+          });
+        }
       }
 
       // Save user details locally
@@ -211,6 +222,17 @@ export default function Login() {
               role: isAdminEmail ? 'Admin' : 'Contestant'
             })
           });
+        } else {
+          const isAdminEmail = email.toLowerCase() === 'bhatianirudhsingh592@gmail.com';
+          if (isAdminEmail && dbUser.role !== 'Admin') {
+            dbUser = await requestJson(`/api/admin/users/${dbUser.id}`, {
+              method: 'PUT',
+              body: JSON.stringify({
+                ...dbUser,
+                role: 'Admin'
+              })
+            });
+          }
         }
 
         // Save session
